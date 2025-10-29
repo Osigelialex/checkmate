@@ -1,0 +1,31 @@
+# ================================
+# 🔧 Server Configuration
+# ================================
+PORT=7000
+NODE_ENV=development
+
+# ================================
+# 🔐 Authentication
+# ================================
+JWT_SECRET=your_jwt_secret_here
+
+# Number of bcrypt salt rounds for hashing passwords
+SALT_ROUNDS=11
+
+# ================================
+# 🧠 Redis Configuration
+# ================================
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_MODE=single
+
+# ================================
+# 🗄️ Database Configuration
+# ================================
+POSTGRES_USER=checkmate
+POSTGRES_PASSWORD=gambit
+POSTGRES_DB=checkmate_db
+
+# Connection URL for Prisma or other DB clients
+DATABASE_URL=postgresql://checkmate:gambit@postgres:5432/checkmate_db?schema=public

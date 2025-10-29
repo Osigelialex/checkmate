@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+    networks:
+      - checkmate-network
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    networks:
+      - checkmate-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  app:
+    build:
+      context: .
+      target: production
+      args:
+        - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    ports:
+      - "7000:7000"
+      - "5555:5555"
+    networks:
+      - checkmate-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: always
+
+networks:
+  checkmate-network:
+    name: checkmate-network
+
+volumes:
+  postgres_data:

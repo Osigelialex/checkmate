@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "target": "ES6",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictPropertyInitialization": false,
+    "strict": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "noImplicitAny": false,
+    "types": ["reflect-metadata"],
+    "typeRoots": ["./types"],
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
