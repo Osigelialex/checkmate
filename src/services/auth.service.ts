@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import { prisma } from "../config/db.config";
-import { LoginDTO, RefreshTokenDTO, SignupDTO, VerifyOtpDTO } from "../dtos/auth.dto";
+import { LoginDTO, RefreshTokenDTO, RequestPasswordResetDTO,
+  ResetPasswordDTO, SignupDTO, ValidatePasswordResetDTO, VerifyOtpDTO } from "../dtos/auth.dto";
 import { HttpException } from "../utils/exception.util";
 import { redisClient } from "../config/redis.config";
 import otpGenerator from "otp-generator";
@@ -9,6 +10,7 @@ import { generateJwtToken, verifyToken } from "../utils/helpers.utils";
 import { hashPassword, compareHashedPassword } from "../utils/helpers.utils";
 import { OTP_TYPES } from "../utils/constants.util";
 import { JwtPayload } from "jsonwebtoken";
+import crypto from "crypto";
 
 export class AuthService {
   private readonly mailService: MailService = new MailService();
@@ -26,6 +28,16 @@ export class AuthService {
     }));
 
     return code;
+  }
+
+  private generateAndStoreResetToken = async (
+    email: string,
+    expirySeconds: number = 600
+  ): Promise<string> => {
+    const token = crypto.randomUUID();
+    const key = `resetToken:${token}`;
+    await redisClient.setex(key, expirySeconds, email);
+    return token;
   }
 
   private verifyOTPCode = async (
@@ -69,7 +81,7 @@ export class AuthService {
     const user = await prisma.user.create({ data: dto });
     const code = await this.generateAndStoreOTP(email, OTP_TYPES.EMAIL_VERIFICATION, user.id);
 
-    await this.mailService.sendEmailVerificationOtp(email, code);
+    await this.mailService.sendEmailOTP(email, code, OTP_TYPES.EMAIL_VERIFICATION);
   }
 
   public verifyOTP = async (dto: VerifyOtpDTO) => {
@@ -112,6 +124,10 @@ export class AuthService {
       throw new HttpException(StatusCodes.BAD_REQUEST, "Invalid email or password");
     }
 
+    if (!user.emailVerified) {
+      throw new HttpException(StatusCodes.FORBIDDEN, "Please verify your email before logging in");
+    }
+
     const accessToken = await generateJwtToken(user.id, "access");
     const refreshToken = await generateJwtToken(user.id, "refresh");
 
@@ -140,6 +156,59 @@ export class AuthService {
 
     const accessToken = await generateJwtToken(user.id, "access");
     return { accessToken }
+  }
+
+  public requestPasswordReset = async (dto: RequestPasswordResetDTO) => {
+    const { email } = dto;
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      throw new HttpException(StatusCodes.BAD_REQUEST, "No active account found with that email");
+    }
+
+    const code = await this.generateAndStoreOTP(email, OTP_TYPES.PASSWORD_RESET, user.id);
+    await this.mailService.sendEmailOTP(email, code, OTP_TYPES.PASSWORD_RESET);
+  }
+
+  public validatePasswordResetCode = async (dto: ValidatePasswordResetDTO) => {
+    const { code, email } = dto;
+    await this.verifyOTPCode(code, email, OTP_TYPES.PASSWORD_RESET);
+
+    const resetToken = await this.generateAndStoreResetToken(email);
+    return { resetToken };
+  }
+
+  public resetPassword = async (dto: ResetPasswordDTO) => {
+    const { resetToken, password } = dto;
+    const storedEmail = await redisClient.get(`resetToken:${resetToken}`);
+    if (!storedEmail) {
+      throw new HttpException(StatusCodes.BAD_REQUEST, "Invalid reset token");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: storedEmail }
+    });
+
+    if (!user) {
+      throw new HttpException(StatusCodes.BAD_REQUEST, "No active account with provided email");
+    }
+
+    const passwordHash = await hashPassword(password);
+    if (!passwordHash) {
+      throw new HttpException(StatusCodes.INTERNAL_SERVER_ERROR,
+        "There was an issue resetting your password, please try again")
+    }
+
+    await prisma.user.update({
+      where: { email: storedEmail },
+      data: {
+        password: passwordHash
+      }
+    });
+
+    await redisClient.del(`resetToken:${resetToken}`);
   }
 
   public logout = async (dto: RefreshTokenDTO) => {

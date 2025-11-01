@@ -41,6 +41,33 @@ export class AuthController {
     });
   }
 
+  public requestPasswordReset = async (request: Request, response: Response) => {
+    await this.service.requestPasswordReset(request.body);
+    return response.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {}
+    })
+  }
+
+  public validatePasswordReset = async (request: Request, response: Response) => {
+    const responseData = await this.service.validatePasswordResetCode(request.body);
+    return response.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Password reset validated',
+      data: responseData
+    })
+  }
+
+  public resetPassword = async (request: Request, response: Response) => {
+    const responseData = await this.service.resetPassword(request.body);
+    return response.status(StatusCodes.OK).json({
+      success: true,
+      message: "Password reset successfully",
+      data: responseData
+    })
+  }
+
   public logout = async (request: Request, response: Response) => {
     await this.service.logout(request.body);
     return response.status(StatusCodes.OK).json({

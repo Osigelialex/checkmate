@@ -1,10 +1,10 @@
 import { logger } from "../config/logger.config"
 
 export class MailService {
+  // TODO: Implement mail service with zepto mail
   constructor() {}
 
-  public sendEmailVerificationOtp = async (email: string, code: string): Promise<void> => {
-    // TODO: Implement mail server with zepto mail
-    logger.info(`${email} - ${code}`);
+  public sendEmailOTP = async (email: string, code: string, reason: string): Promise<void> => {
+    logger.info(`${email} - ${code} - ${reason}`);
   }
 }
